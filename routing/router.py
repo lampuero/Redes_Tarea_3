@@ -3,6 +3,7 @@ from json import JSONDecodeError
 from random import choice
 from threading import Timer
 
+from send_packet import send_packet
 from routing.router_port import RouterPort
 
 
@@ -14,6 +15,8 @@ class Router(object):
         self._init_ports(ports)
         self.timer = None
         self.logging = logging
+        self.distance_table = dict()
+        self.route_table = dict()
 
     def _success(self, message):
         """
@@ -48,6 +51,16 @@ class Router(object):
 
             self.ports[output_port] = router_port
 
+
+    def _init_table(self):
+        print(type(self.ports))
+        for port, routerport in self.ports.items():
+            send_packet(port, json.dumps({'port': port, 'responseTo': routerport.input_port,'name': 'REPLACE THIS NAME'}))
+
+    def send_distance_table(self):
+        for port, routerport in self.ports:
+            send_packet(port, json.dumps({'sender': routerport.input_port, 'table': self.distance_table}))
+
     def _new_packet_received(self, packet):
         """
         Internal method called as callback when a packet is received.
@@ -63,12 +76,35 @@ class Router(object):
             self._log("Malformed packet")
             return
 
+        if 'port' in message and 'responseTo' in message and 'name' in message:
+            if message['name'] == 'REPLACE THIS NAME':
+                message['name']= self.name
+                send_packet(message['responseTo'], json.dumps(message))
+            else:
+                self.distance_table[message['name']] = 1
+                self.route_table[message['name']] = message['port']
+                self.send_distance_table()
+
+        if 'sender' in message and 'table' in message:
+            dt = message['table']
+            for name, distance in dt:
+                if name not in self.distance_table:
+                    self.distance_table[name] = distance + 1
+                    self.route_table[name] = message['sender']
+                    self.send_distance_table()
+                elif self.distance_table[name] > distance +1 :
+                    self.distance_table[name] = distance + 1
+                    self.route_table[name] = message['sender']
+                    self.send_distance_table()
+
+
         if 'destination' in message and 'data' in message:
             if message['destination'] == self.name:
                 self._success(message['data'])
             else:
                 # Randomly choose a port to forward
-                port = choice(list(self.ports.keys()))
+                # port = choice(list(self.ports.keys()))
+                port = self.route_table[message['destination']]
                 self._log("Forwarding to port {}".format(port))
                 self.ports[port].send_packet(packet)
         else:
@@ -89,6 +125,7 @@ class Router(object):
         :return: None
         """
         self._log("Starting")
+        self._init_table()
         self._broadcast()
         for port in self.ports.values():
             port.start()
