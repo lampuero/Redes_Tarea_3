@@ -16,7 +16,7 @@ class Router(object):
         self.timer = None
         self.logging = logging
         self.distance_table = dict()
-        self.route_table = dict()
+        self.routing_table = dict()
 
     def _success(self, message):
         """
@@ -51,15 +51,6 @@ class Router(object):
 
             self.ports[output_port] = router_port
 
-    def init_table(self):
-        print("iniciando tabla")
-        for port, routerport in self.ports.items():
-            send_packet(port, json.dumps({'port': port, 'responseTo': routerport.input_port, 'name': 'REPLACE THIS NAME'}))
-
-    def send_distance_table(self):
-        for port, routerport in self.ports.items():
-            send_packet(port, json.dumps({'sender': routerport.input_port, 'table': self.distance_table}))
-
     def _new_packet_received(self, packet):
         """
         Internal method called as callback when a packet is received.
@@ -74,35 +65,33 @@ class Router(object):
         except JSONDecodeError:
             self._log("Malformed packet")
             return
-        print("recibido {}".format(message))
+
         if 'port' in message and 'responseTo' in message and 'name' in message:
             if message['name'] == 'REPLACE THIS NAME':
-                message['name']= self.name
+                message['name'] = self.name
                 send_packet(message['responseTo'], json.dumps(message))
             else:
                 self.distance_table[message['name']] = 1
-                self.route_table[message['name']] = message['port']
-                self.send_distance_table()
+                self.routing_table[message['name']] = message['port']
+                self._send_new_distance(message['name'])
 
-        elif 'sender' in message and 'table' in message:
-            dt = message['table']
-            for name, distance in dt.items():
-                if name not in self.distance_table:
-                    self.distance_table[name] = distance + 1
-                    self.route_table[name] = message['sender']
-                    self.send_distance_table()
-                elif self.distance_table[name] > distance +1 :
-                    self.distance_table[name] = distance + 1
-                    self.route_table[name] = message['sender']
-                    self.send_distance_table()
+        elif 'sender' in message and 'name' in message and 'distance' in message:
+            name = message['name']
+            distance = message['distance']
+            if name not in self.distance_table:
+                self.distance_table[name] = distance + 1
+                self.routing_table[name] = message['sender']
+                self._send_new_distance(name)
+            elif self.distance_table[name] > distance + 1:
+                self.distance_table[name] = distance + 1
+                self.routing_table[name] = message['sender']
+                self._send_new_distance(name)
 
         elif 'destination' in message and 'data' in message:
             if message['destination'] == self.name:
                 self._success(message['data'])
             else:
-                # Randomly choose a port to forward
-                # port = choice(list(self.ports.keys()))
-                port = self.route_table[message['destination']]
+                port = self.routing_table[message['destination']]
                 self._log("Forwarding to port {}".format(port))
                 self.ports[port].send_packet(packet)
         else:
@@ -144,3 +133,17 @@ class Router(object):
             port.join()
 
         self._log("Stopped")
+
+    def init_table(self):
+        for port, router_port in self.ports.items():
+            send_packet(port, json.dumps({'port': port,
+                                          'responseTo': router_port.input_port,
+                                          'name': 'REPLACE THIS NAME'}))
+
+    def _send_new_distance(self, name):
+        for port, router_port in self.ports.items():
+            send_packet(port, json.dumps({'sender': router_port.input_port,
+                                          'name': name,
+                                          'distance': self.distance_table[name]}))
+
+
