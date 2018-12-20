@@ -19,6 +19,9 @@ def start(topology_path):
     for router in routers:
         router.start()
 
+    for router in routers:
+        router.init_table()
+
     return routers
 
 
