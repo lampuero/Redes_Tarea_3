@@ -9,6 +9,8 @@
 ## Consideraciones para revisar
 
 ### En el archivo router.py
+- Se agregan dos variables a cada Router, dos diccionarios que representan las siguientes tablas:
+ una tabla guarda la distancia a cada router y la otra tabla para rutear especificando el output para cada router.
 - Se agregaron las funciones `init_table` y `_send_new_distance` al final del archivo.
 - Se modificaron (agrego código) a las funciones  `__init__` y `_new_packet_received`.
 
