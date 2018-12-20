@@ -9,10 +9,13 @@
 ## Consideraciones para revisar
 
 ### En el archivo router.py
-- Se agregan dos variables a cada Router, dos diccionarios que representan las siguientes tablas:
- una tabla guarda la distancia a cada router y la otra tabla para rutear especificando el output para cada router.
+
 - Se agregaron las funciones `init_table` y `_send_new_distance` al final del archivo.
 - Se modificaron (agrego código) a las funciones  `__init__` y `_new_packet_received`.
-
+- Se agregan dos variables a cada Router, dos diccionarios que representan las siguientes tablas:
+    - Una tabla guarda la distancia a cada router.
+    - Una tabla para rutear especificando el puerto por el que el router debe enviar el mensaje.
+- Ambas tablas ocupan como llave los nombres de los routers.
+- Para calcular la distancia se utilizo la premisa que dos routers conectados directamente por un RouterPort están a distancia 1.
 ### En el archivo topology.py
 - Se modifico (agrego código) a la función `start`.
